@@ -6,83 +6,104 @@
   <title>Портал ГМЗ-1</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23c8962e'/%3E%3Cpath d='M9 22V10h6a4 4 0 0 1 0 8h-6' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js"></script>
   <script>
-    // Применяем тему и вид до отрисовки, чтобы не было мигания
-    try {
-      var t = localStorage.getItem("portal-theme");
+    // Применяем тему и вариант оформления до отрисовки, чтобы не было мигания
+    (function () {
+      var d = document.documentElement, t = null, v = null;
+      try {
+        t = localStorage.getItem("portal-theme");
+        v = localStorage.getItem("portal-variant");
+      } catch (e) {}
+      var m = /[?&]v=([a-d])/i.exec(location.search);
+      if (m) v = m[1].toLowerCase();
       if (!t && window.matchMedia("(prefers-color-scheme: dark)").matches) t = "dark";
-      document.documentElement.setAttribute("data-theme", t || "light");
-      document.documentElement.setAttribute("data-view", localStorage.getItem("portal-view") || "grid");
-    } catch (e) {
-      document.documentElement.setAttribute("data-theme", "light");
-    }
+      d.setAttribute("data-theme", t || "light");
+      d.setAttribute("data-variant", v || (window.PORTAL_CONFIG && window.PORTAL_CONFIG.variant) || "a");
+    })();
   </script>
 </head>
 <body>
   <canvas class="bg-canvas" id="bg-canvas" aria-hidden="true"></canvas>
 
   <div class="shell">
-    <!-- Боковое меню -->
+    <!-- Боковое меню (вариант A) -->
     <aside class="sidebar" id="sidebar">
       <a class="brand" href="./">
         <span class="brand-mark" aria-hidden="true">Г</span>
         <span class="brand-text">
-          <span class="brand-title" id="portal-title">Портал ГМЗ-1</span>
-          <span class="brand-sub" id="portal-subtitle"></span>
+          <span class="brand-title js-title">Портал ГМЗ-1</span>
+          <span class="brand-sub js-subtitle"></span>
         </span>
       </a>
-
       <nav class="nav" id="nav" aria-label="Разделы"></nav>
-
       <div class="side-block">
         <div class="side-title">Полезные ссылки</div>
         <ul class="side-links" id="side-links"></ul>
       </div>
-
-      <div class="side-footer">
-        <button class="side-btn" id="theme-toggle" type="button"></button>
-        <button class="side-btn" id="view-toggle" type="button"></button>
-      </div>
     </aside>
     <div class="scrim" id="scrim"></div>
 
-    <!-- Основная часть -->
     <div class="main">
       <header class="topbar">
         <button class="icon-btn menu-btn" id="menu-btn" type="button" aria-label="Меню"></button>
-        <button class="search-trigger" id="search-trigger" type="button">
-          <span class="st-icon" id="st-icon"></span>
-          <span class="st-text">Найти приложение или команду…</span>
-          <span class="kbd-group"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+        <a class="brand topbar-brand" href="./">
+          <span class="brand-mark" aria-hidden="true">Г</span>
+          <span class="brand-text">
+            <span class="brand-title js-title">Портал ГМЗ-1</span>
+            <span class="brand-sub js-subtitle"></span>
+          </span>
+        </a>
+        <span class="spacer"></span>
+        <button class="cmdk" id="cmdk-btn" type="button" title="Быстрый поиск приложения" aria-label="Быстрый поиск (Ctrl + K)">
+          <span class="cmdk-icon" id="cmdk-icon"></span>
+          <span class="cmdk-keys"><kbd>Ctrl</kbd><span class="plus">+</span><kbd>K</kbd></span>
         </button>
         <button class="icon-btn" id="recheck-btn" type="button" title="Проверить доступность" aria-label="Проверить доступность"></button>
+        <button class="icon-btn" id="theme-toggle" type="button"></button>
       </header>
 
-      <section class="hero">
-        <div class="hero-left">
-          <div class="hero-date" id="hero-date"></div>
-          <h1 class="hero-greeting" id="greeting">Добро пожаловать</h1>
-          <p class="hero-sub" id="hero-sub"></p>
+      <div class="layout">
+        <div class="lead">
+          <section class="hero">
+            <div class="hero-text">
+              <div class="hero-date" id="hero-date"></div>
+              <h1 class="hero-greeting" id="greeting">Добро пожаловать</h1>
+              <p class="hero-sub" id="hero-sub"></p>
+            </div>
+            <div class="hero-clock" aria-hidden="true">
+              <span id="clock-hm">--:--</span><span class="clock-sec" id="clock-s">--</span>
+            </div>
+          </section>
+
+          <section class="stats" id="stats"></section>
+
+          <section class="links-row" id="links-row">
+            <div class="links-title">Полезные ссылки</div>
+            <div class="links-list" id="links-list"></div>
+          </section>
         </div>
-        <div class="hero-clock" aria-hidden="true">
-          <span id="clock-hm">--:--</span><span class="clock-sec" id="clock-s">--</span>
+
+        <div class="body">
+          <nav class="tabs" id="tabs" aria-label="Разделы"></nav>
+
+          <section class="recent" id="recent" hidden>
+            <div class="recent-title"><span id="recent-icon"></span>Недавно открытые</div>
+            <div class="recent-list" id="recent-list"></div>
+          </section>
+
+          <div id="content"></div>
+
+          <footer class="footer" id="footer"></footer>
         </div>
-      </section>
-
-      <section class="stats" id="stats"></section>
-
-      <section class="recent" id="recent" hidden>
-        <div class="recent-title"><span id="recent-icon"></span>Недавно открытые</div>
-        <div class="recent-list" id="recent-list"></div>
-      </section>
-
-      <div id="content"></div>
-
-      <footer class="footer" id="footer"></footer>
+      </div>
     </div>
   </div>
 
-  <!-- Командная строка -->
+  <!-- Переключатель вариантов оформления -->
+  <div class="variants" id="variants" hidden></div>
+
+  <!-- Быстрый поиск -->
   <div class="palette" id="palette" hidden>
     <div class="palette-backdrop" data-close></div>
     <div class="palette-box" role="dialog" aria-modal="true" aria-label="Поиск">
@@ -103,7 +124,6 @@
   <div class="toasts" id="toasts" aria-live="polite"></div>
 
   <script src="js/icons.js"></script>
-  <script src="js/config.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

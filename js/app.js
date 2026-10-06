@@ -3,11 +3,17 @@
 
   var cfg = window.PORTAL_CONFIG || { sections: [], links: [] };
   var ICONS = window.PORTAL_ICONS || {};
-  var KEYS = { fav: "portal-favorites", recent: "portal-recent", theme: "portal-theme", view: "portal-view" };
+  var KEYS = { fav: "portal-favorites", recent: "portal-recent", theme: "portal-theme", variant: "portal-variant" };
   var REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var root = document.documentElement;
 
   var STATUS = { new: "Новое", beta: "Бета", dev: "В разработке", offline: "Недоступно" };
+  var VARIANTS = [
+    { id: "a", name: "Классика", desc: "Боковое меню и большие карточки" },
+    { id: "b", name: "Плитки", desc: "Квадратные кнопки по центру" },
+    { id: "c", name: "Мозаика", desc: "Цветные плитки разного размера" },
+    { id: "d", name: "Панель", desc: "Часы слева, кнопки справа" },
+  ];
   var CHECK_LABEL = { checking: "Проверка…", online: "В сети", offline: "Нет ответа", none: "Адрес не указан" };
 
   // ================= утилиты =================
@@ -274,14 +280,14 @@
       "data-color": app.color,
       style: "--i:" + (opts.index || 0),
     }, [
-      featured ? el("div", { class: "card-wash" }) : null,
-      featured ? el("div", { class: "card-art" }, [icon(app.icon)]) : null,
+      el("div", { class: "card-wash" }),
+      el("div", { class: "card-art" }, [icon(app.icon)]),
       link,
       el("div", { class: "card-actions" }, [copy, fav]),
       opts.hotkey ? el("span", { class: "hotkey", title: "Клавиша " + opts.hotkey, text: String(opts.hotkey) }) : null,
     ]);
 
-    attachTilt(card, featured ? 4 : 7);
+    attachTilt(card, featured ? 4 : 6);
     return card;
   }
 
@@ -294,7 +300,7 @@
       var y = (e.clientY - r.top) / r.height;
       card.style.setProperty("--mx", (x * 100).toFixed(1) + "%");
       card.style.setProperty("--my", (y * 100).toFixed(1) + "%");
-      if (e.pointerType === "mouse" && root.getAttribute("data-view") !== "list") {
+      if (e.pointerType === "mouse") {
         card.classList.add("is-tilting");
         card.style.setProperty("--rx", ((0.5 - y) * max).toFixed(2) + "deg");
         card.style.setProperty("--ry", ((x - 0.5) * max).toFixed(2) + "deg");
@@ -351,11 +357,20 @@
     return items;
   }
 
+  var $tabs = document.getElementById("tabs");
+
   function renderNav() {
     $nav.innerHTML = "";
+    $tabs.innerHTML = "";
     navItems().forEach(function (it) {
+      $nav.appendChild(navLink(it, "nav-item"));
+      $tabs.appendChild(navLink(it, "tab"));
+    });
+  }
+
+  function navLink(it, cls) {
       var a = el("a", {
-        class: "nav-item" + (activeNav === it.id ? " active" : ""),
+        class: cls + (activeNav === it.id ? " active" : ""),
         href: it.id === "top" ? "#" : "#s-" + it.id,
         "data-id": it.id,
       }, [icon(it.icon), it.title, it.count !== undefined ? el("span", { class: "nav-count", text: String(it.count) }) : null]);
@@ -369,14 +384,19 @@
         }
         setActiveNav(it.id);
       });
-      $nav.appendChild(a);
-    });
+      return a;
   }
 
   function setActiveNav(id) {
     activeNav = id;
-    Array.prototype.forEach.call($nav.children, function (n) {
-      n.classList.toggle("active", n.getAttribute("data-id") === id);
+    [$nav, $tabs].forEach(function (box) {
+      Array.prototype.forEach.call(box.children, function (n) {
+        var on = n.getAttribute("data-id") === id;
+        n.classList.toggle("active", on);
+        if (on && box === $tabs && box.scrollWidth > box.clientWidth) {
+          box.scrollTo({ left: n.offsetLeft - 16, behavior: REDUCED ? "auto" : "smooth" });
+        }
+      });
     });
   }
 
@@ -414,6 +434,15 @@
       ]));
     });
     $links.parentElement.hidden = !(cfg.links && cfg.links.length);
+
+    var $row = document.getElementById("links-list");
+    $row.innerHTML = "";
+    (cfg.links || []).forEach(function (l) {
+      $row.appendChild(el("a", { class: "link-pill", href: l.url, target: "_blank", rel: "noopener" }, [
+        icon(l.icon), l.name, el("span", { class: "go" }, [icon("external")]),
+      ]));
+    });
+    document.getElementById("links-row").hidden = !(cfg.links && cfg.links.length);
   }
 
   // мобильное меню
@@ -510,12 +539,13 @@
 
   function commands() {
     var dark = root.getAttribute("data-theme") === "dark";
-    var list = root.getAttribute("data-view") === "list";
+    var current = root.getAttribute("data-variant");
     return [
       { kind: "cmd", name: dark ? "Светлая тема" : "Тёмная тема", desc: "Сменить оформление", icon: dark ? "sun" : "moon", run: toggleTheme },
-      { kind: "cmd", name: list ? "Вид: плитки" : "Вид: список", desc: "Как показывать приложения", icon: list ? "grid" : "list", run: toggleView },
       { kind: "cmd", name: "Проверить доступность", desc: "Опросить все приложения", icon: "refresh", run: function () { checkAll(true); } },
-    ];
+    ].concat(VARIANTS.filter(function (v) { return v.id !== current; }).map(function (v) {
+      return { kind: "cmd", name: "Вариант " + v.id.toUpperCase() + ": " + v.name, desc: v.desc, icon: "grid", run: function () { setVariant(v.id); } };
+    }));
   }
 
   function score(hay, name, q) {
@@ -653,9 +683,9 @@
     if (e.target.hasAttribute("data-close")) closePalette();
   });
 
-  document.getElementById("st-icon").appendChild(icon("search"));
+  document.getElementById("cmdk-icon").appendChild(icon("search"));
   document.getElementById("palette-icon").appendChild(icon("search"));
-  document.getElementById("search-trigger").addEventListener("click", openPalette);
+  document.getElementById("cmdk-btn").addEventListener("click", openPalette);
 
   // ================= горячие клавиши =================
   document.addEventListener("keydown", function (e) {
@@ -676,22 +706,49 @@
     } else if (e.key === "Escape") closeMenu();
   });
 
-  // ================= тема и вид =================
+  // ================= тема и варианты оформления =================
   var $theme = document.getElementById("theme-toggle");
-  var $view = document.getElementById("view-toggle");
+  var $variants = document.getElementById("variants");
 
   function paintToggles() {
     var dark = root.getAttribute("data-theme") === "dark";
     $theme.innerHTML = "";
     $theme.appendChild(icon(dark ? "sun" : "moon"));
-    $theme.appendChild(document.createTextNode(dark ? "Светлая" : "Тёмная"));
-    $theme.title = dark ? "Включить светлую тему" : "Включить тёмную тему";
+    $theme.title = dark ? "Светлая тема" : "Тёмная тема";
+    $theme.setAttribute("aria-label", $theme.title);
 
-    var list = root.getAttribute("data-view") === "list";
-    $view.innerHTML = "";
-    $view.appendChild(icon(list ? "grid" : "list"));
-    $view.appendChild(document.createTextNode(list ? "Плитки" : "Список"));
-    $view.title = list ? "Показать плитками" : "Показать списком";
+    var current = root.getAttribute("data-variant");
+    Array.prototype.forEach.call($variants.querySelectorAll(".variant-btn"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-v") === current ? "true" : "false");
+    });
+  }
+
+  function renderVariantSwitcher() {
+    if (cfg.showVariantSwitcher === false) return;
+    $variants.innerHTML = "";
+    $variants.appendChild(el("span", { class: "variants-label", text: "Вариант" }));
+    VARIANTS.forEach(function (v) {
+      var b = el("button", { class: "variant-btn", type: "button", "data-v": v.id, title: v.name + " — " + v.desc }, [
+        el("b", { text: v.id.toUpperCase() }), el("span", { text: v.name }),
+      ]);
+      b.addEventListener("click", function () { setVariant(v.id); });
+      $variants.appendChild(b);
+    });
+    $variants.hidden = false;
+  }
+
+  function setVariant(id) {
+    if (root.getAttribute("data-variant") === id) return;
+    root.setAttribute("data-variant", id);
+    try { localStorage.setItem(KEYS.variant, id); } catch (e) { /* ignore */ }
+    if (/[?&]v=/.test(location.search) && window.history.replaceState) {
+      window.history.replaceState(null, "", location.pathname + location.hash);
+    }
+    closeMenu();
+    paintToggles();
+    renderContent();
+    var v = VARIANTS.filter(function (x) { return x.id === id; })[0];
+    toast("Вариант " + id.toUpperCase() + ": " + v.name, "grid");
   }
 
   function toggleTheme() {
@@ -702,24 +759,17 @@
     bg.recolor();
   }
 
-  function toggleView() {
-    var next = root.getAttribute("data-view") === "list" ? "grid" : "list";
-    root.setAttribute("data-view", next);
-    try { localStorage.setItem(KEYS.view, next); } catch (e) { /* ignore */ }
-    paintToggles();
-    renderContent();
-  }
-
   $theme.addEventListener("click", toggleTheme);
-  $view.addEventListener("click", toggleView);
 
   // ================= шапка: часы и приветствие =================
   function initHero() {
+    var titles = document.querySelectorAll(".js-title");
+    var subs = document.querySelectorAll(".js-subtitle");
     if (cfg.title) {
       document.title = cfg.title;
-      document.getElementById("portal-title").textContent = cfg.title;
+      Array.prototype.forEach.call(titles, function (n) { n.textContent = cfg.title; });
     }
-    document.getElementById("portal-subtitle").textContent = cfg.subtitle || "";
+    Array.prototype.forEach.call(subs, function (n) { n.textContent = cfg.subtitle || ""; });
     document.getElementById("footer").textContent = (cfg.title || "Портал") + " · " + new Date().getFullYear();
     document.getElementById("recent-icon").appendChild(icon("history"));
     $recheck.appendChild(icon("refresh"));
@@ -835,6 +885,7 @@
   }
 
   initHero();
+  renderVariantSwitcher();
   paintToggles();
   renderSideLinks();
   renderAll();
